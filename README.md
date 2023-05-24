@@ -1,6 +1,6 @@
 # Distribute System Challenges
 
-[![build](https://github.com/redsnow1992/kv/actions/workflows/build.yml/badge.svg)](https://github.com/redsnow1992/kv/actions/workflows/build.yml)
+[![build](https://github.com/redsnow1992/dist-sys-rs/actions/workflows/build.yml/badge.svg)](https://github.com/redsnow1992/dist-sys-rs/actions/workflows/build.yml)
 
 [challenge link](https://fly.io/dist-sys/)
 
