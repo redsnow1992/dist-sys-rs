@@ -31,6 +31,12 @@ pub enum BodyKind {
     EchoOk,
     Generate,
     GenerateOk,
+    Broadcast,
+    BroadcastOk,
+    Read,
+    ReadOk,
+    Topology,
+    TopologyOk,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +54,14 @@ impl Payload {
 
     pub fn get_str(&self, key: &str) -> &str {
         self.0[key].as_str().unwrap()
+    }
+
+    pub fn get(&self, key: &str) -> &Value {
+        &self.0[key]
+    }
+
+    pub fn get_usize(&self, key: &str) -> usize {
+        self.0[key].as_u64().unwrap() as usize
     }
 
     pub fn put(&mut self, key: &str, value: Value) {
