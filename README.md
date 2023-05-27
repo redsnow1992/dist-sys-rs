@@ -32,5 +32,10 @@
 cargo tarpaulin
 ```
 
+## run precommit
+```
+pre-commit run --all-files
+```
+
 ## todo
 1. serde_json deserialize according message type

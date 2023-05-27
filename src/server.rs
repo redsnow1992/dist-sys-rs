@@ -31,7 +31,7 @@ impl ServerInner {
             kind: BodyKind::InitOk,
             reply_to: Some(1),
             msg_id: 1,
-            payload: Payload::new(),
+            payload: Payload::default(),
         };
 
         Some(Message {
@@ -43,7 +43,7 @@ impl ServerInner {
 }
 
 pub trait HasInner {
-    fn into_inner(&mut self) -> &mut ServerInner;
+    fn as_inner(&mut self) -> &mut ServerInner;
 }
 
 pub trait Serve: HasInner {
@@ -54,7 +54,7 @@ pub trait Serve: HasInner {
     fn reply(&mut self, msg: &Message) -> Option<Message>;
 
     fn reply_inner(&mut self, msg: &Message) -> Option<Message> {
-        self.into_inner().advance();
+        self.as_inner().advance();
         self.reply(msg)
     }
 
@@ -71,8 +71,8 @@ pub trait Serve: HasInner {
 
             if let Some(to_send) = self.send() {
                 for to_send_msg in to_send.iter() {
-                    self.into_inner().advance();
-                    Self::write_to_stdout(&mut stdout, &to_send_msg);
+                    self.as_inner().advance();
+                    Self::write_to_stdout(&mut stdout, to_send_msg);
                 }
             }
         }

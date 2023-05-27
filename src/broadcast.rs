@@ -1,6 +1,3 @@
-#![feature(register_tool)]
-#![register_tool(tarpaulin)]
-
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -34,7 +31,7 @@ impl BroadcastServer {
             kind: BodyKind::BroadcastOk,
             msg_id: self.inner.next_msg_id(),
             reply_to: Some(msg.body.msg_id),
-            payload: Payload::new(),
+            payload: Payload::default(),
         };
 
         Message {
@@ -122,7 +119,7 @@ impl BroadcastServer {
             kind: BodyKind::TopologyOk,
             msg_id: self.inner.next_msg_id(),
             reply_to: Some(msg.body.msg_id),
-            payload: Payload::new(),
+            payload: Payload::default(),
         };
 
         Message {
@@ -152,12 +149,11 @@ impl Serve for BroadcastServer {
 }
 
 impl HasInner for BroadcastServer {
-    fn into_inner(&mut self) -> &mut ServerInner {
+    fn as_inner(&mut self) -> &mut ServerInner {
         &mut self.inner
     }
 }
 
-#[tarpaulin::skip]
 fn main() -> Result<()> {
     let mut server = BroadcastServer::default();
     server.serve()

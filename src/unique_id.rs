@@ -1,6 +1,3 @@
-#![feature(register_tool)]
-#![register_tool(tarpaulin)]
-
 use anyhow::Result;
 use core::panic;
 use dist_sys_rs::{
@@ -60,20 +57,19 @@ impl UniqueIdServer {
 impl Serve for UniqueIdServer {
     fn reply(&mut self, msg: &Message) -> Option<Message> {
         match &msg.body.kind {
-            BodyKind::Init => self.inner.init(&msg),
-            BodyKind::Generate => Some(self.generate(&msg)),
+            BodyKind::Init => self.inner.init(msg),
+            BodyKind::Generate => Some(self.generate(msg)),
             _ => panic!("receive ${:?}", msg),
         }
     }
 }
 
 impl HasInner for UniqueIdServer {
-    fn into_inner(&mut self) -> &mut ServerInner {
+    fn as_inner(&mut self) -> &mut ServerInner {
         &mut self.inner
     }
 }
 
-#[tarpaulin::skip]
 fn main() -> Result<()> {
     let mut server = UniqueIdServer::default();
     server.serve()

@@ -46,14 +46,10 @@ pub enum BodyKind {
     TopologyOk,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Payload(HashMap<String, Value>);
 
 impl Payload {
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
-
     pub fn init(key: &str, value: Value) -> Self {
         let inner = HashMap::from([(key.to_string(), value)]);
         Self(inner)
@@ -90,7 +86,7 @@ mod tests {
             kind: BodyKind::Generate,
             msg_id: 0,
             reply_to: None,
-            payload: Payload::new(),
+            payload: Payload::default(),
         };
 
         let serialized_body = serde_json::to_string(&body).unwrap();
