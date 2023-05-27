@@ -11,6 +11,13 @@ pub struct Message {
     pub body: Body,
 }
 
+#[derive(Debug)]
+pub struct MessageBuilder {
+    pub src: String,
+    pub dst: String,
+    pub body: Body,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Body {
     #[serde(rename = "type")]
@@ -56,7 +63,7 @@ impl Payload {
         self.0[key].as_str().unwrap()
     }
 
-    pub fn get(&self, key: &str) -> &Value {
+    pub fn get_raw(&self, key: &str) -> &Value {
         &self.0[key]
     }
 

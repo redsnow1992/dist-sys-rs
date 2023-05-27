@@ -4,16 +4,28 @@ use anyhow::{Context, Result};
 
 use crate::message::{Body, BodyKind, Message, Payload};
 
-pub trait Server {
-    /// return node_id of server
-    fn node_id(&self) -> &str;
+#[derive(Debug, Default)]
+pub struct ServerInner {
+    node_id: String,
+    next_msg_id: usize,
+}
 
-    /// set node_id by init msg
-    fn set_node_id(&mut self, node_id: &str);
+impl ServerInner {
+    fn advance(&mut self) {
+        self.next_msg_id += 1;
+    }
 
-    /// detail with init msg
-    fn init(&mut self, dst: &String, node_id: &str) -> Message {
-        self.set_node_id(node_id);
+    pub fn node_id(&self) -> &str {
+        &self.node_id
+    }
+
+    pub fn next_msg_id(&self) -> usize {
+        self.next_msg_id
+    }
+
+    pub fn init(&mut self, msg: &Message) -> Message {
+        self.node_id = msg.body.payload.get_str("node_id").to_string();
+        self.next_msg_id = 0;
 
         let body = Body {
             kind: BodyKind::InitOk,
@@ -23,22 +35,30 @@ pub trait Server {
         };
 
         Message {
-            src: self.node_id().to_string(),
-            dst: dst.clone(),
+            src: self.node_id.clone(),
+            dst: msg.src.to_string(),
             body,
         }
     }
+}
 
-    /// reply to each msg
+pub trait HasInner {
+    fn into_inner(&mut self) -> &mut ServerInner;
+}
+
+pub trait Serve: HasInner {
     fn reply(&mut self, msg: &Message) -> Message;
 
+    fn reply_inner(&mut self, msg: &Message) -> Message {
+        self.into_inner().advance();
+        self.reply(msg)
+    }
+
     /// eventloop to process msg
-    fn eventloop(&mut self) -> Result<()> {
+    fn serve(&mut self) -> Result<()> {
         let stdin = std::io::stdin().lock();
         let mut stdout = std::io::stdout().lock();
-
         let input = serde_json::Deserializer::from_reader(stdin).into_iter::<Message>();
-
         for msg in input {
             let msg = msg.context("cannot deserialize from stdin")?;
             let reply_msg = self.reply(&msg);

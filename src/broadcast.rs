@@ -4,58 +4,54 @@ use anyhow::Result;
 
 use dist_sys_rs::{
     message::{Body, BodyKind, Message, Payload},
-    server::Server,
+    server::{HasInner, Serve, ServerInner},
 };
-use serde_json::{json, Value};
+use serde_json::json;
 
 #[derive(Debug, Default)]
 pub struct BroadcastServer {
-    pub node_id: String,
-    next_msg_id: usize,
+    inner: ServerInner,
     pub messages: Vec<usize>,
     pub topology: HashMap<String, Vec<String>>,
 }
 
 impl BroadcastServer {
-    pub fn broadcast(&mut self, dst: &String, reply_msg_id: usize, msg: usize) -> Message {
-        self.next_msg_id += 1;
-        self.messages.push(msg);
+    pub fn broadcast(&mut self, msg: &Message) -> Message {
+        self.messages.push(msg.body.payload.get_usize("message"));
 
         let body = Body {
             kind: BodyKind::BroadcastOk,
-            msg_id: self.next_msg_id,
-            reply_to: Some(reply_msg_id),
+            msg_id: self.inner.next_msg_id(),
+            reply_to: Some(msg.body.msg_id),
             payload: Payload::new(),
         };
 
         Message {
-            src: self.node_id.clone(),
-            dst: dst.clone(),
+            src: self.inner.node_id().to_string(),
+            dst: msg.src.clone(),
             body,
         }
     }
 
-    pub fn read(&mut self, dst: &String, reply_msg_id: usize) -> Message {
-        self.next_msg_id += 1;
-
+    pub fn read(&mut self, msg: &Message) -> Message {
         let body = Body {
             kind: BodyKind::ReadOk,
-            msg_id: self.next_msg_id,
-            reply_to: Some(reply_msg_id),
+            msg_id: self.inner.next_msg_id(),
+            reply_to: Some(msg.body.msg_id),
             payload: Payload::init("messages", json!(self.messages)),
         };
 
         Message {
-            src: self.node_id.clone(),
-            dst: dst.clone(),
+            src: self.inner.node_id().to_string(),
+            dst: msg.src.to_string(),
             body,
         }
     }
 
-    pub fn topology(&mut self, dst: &String, reply_msg_id: usize, topology: &Value) -> Message {
-        self.next_msg_id += 1;
+    pub fn topology(&mut self, msg: &Message) -> Message {
         self.topology = HashMap::new();
-        for (k, v) in topology.as_object().unwrap().iter() {
+        let topology_value = msg.body.payload.get_raw("topology");
+        for (k, v) in topology_value.as_object().unwrap().iter() {
             let dsts: Vec<String> = v
                 .as_array()
                 .unwrap()
@@ -67,46 +63,38 @@ impl BroadcastServer {
 
         let body = Body {
             kind: BodyKind::TopologyOk,
-            msg_id: self.next_msg_id,
-            reply_to: Some(reply_msg_id),
+            msg_id: self.inner.next_msg_id(),
+            reply_to: Some(msg.body.msg_id),
             payload: Payload::new(),
         };
 
         Message {
-            src: self.node_id.clone(),
-            dst: dst.clone(),
+            src: self.inner.node_id().to_string(),
+            dst: msg.src.to_string(),
             body,
         }
     }
 }
 
-impl Server for BroadcastServer {
-    fn node_id(&self) -> &str {
-        &self.node_id
-    }
-
-    fn set_node_id(&mut self, node_id: &str) {
-        self.node_id = node_id.to_string();
-    }
-
+impl Serve for BroadcastServer {
     fn reply(&mut self, msg: &Message) -> Message {
         match &msg.body.kind {
-            BodyKind::Init => self.init(&msg.src, msg.body.payload.get_str("node_id")),
-            BodyKind::Broadcast => self.broadcast(
-                &msg.src,
-                msg.body.msg_id,
-                msg.body.payload.get_usize("message"),
-            ),
-            BodyKind::Read => self.read(&msg.src, msg.body.msg_id),
-            BodyKind::Topology => {
-                self.topology(&msg.src, msg.body.msg_id, msg.body.payload.get("topology"))
-            }
+            BodyKind::Init => self.inner.init(msg),
+            BodyKind::Broadcast => self.broadcast(msg),
+            BodyKind::Read => self.read(msg),
+            BodyKind::Topology => self.topology(msg),
             _ => panic!("receive ${:?}", msg),
         }
     }
 }
 
+impl HasInner for BroadcastServer {
+    fn into_inner(&mut self) -> &mut ServerInner {
+        &mut self.inner
+    }
+}
+
 fn main() -> Result<()> {
     let mut server = BroadcastServer::default();
-    server.eventloop()
+    server.serve()
 }

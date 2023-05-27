@@ -2,56 +2,49 @@ use anyhow::Result;
 use core::panic;
 use dist_sys_rs::{
     message::{Body, BodyKind, Message, Payload},
-    server::Server,
+    server::{HasInner, Serve, ServerInner},
 };
 use serde_json::json;
 
 #[derive(Debug, Default)]
 pub struct EchoServer {
-    node_id: String,
-    next_msg_id: usize,
+    inner: ServerInner,
 }
 
 impl EchoServer {
-    fn echo(&mut self, dst: &String, reply_msg_id: usize, echo: &str) -> Message {
-        self.next_msg_id += 1;
-
+    fn echo(&mut self, msg: &Message) -> Message {
         let body = Body {
             kind: BodyKind::EchoOk,
-            msg_id: self.next_msg_id,
-            reply_to: Some(reply_msg_id),
-            payload: Payload::init("echo", json!(echo)),
+            msg_id: self.inner.next_msg_id(),
+            reply_to: Some(msg.body.msg_id),
+            payload: Payload::init("echo", json!(msg.body.payload.get_str("echo"))),
         };
 
         Message {
-            src: self.node_id.clone(),
-            dst: dst.clone(),
+            src: self.inner.node_id().to_string(),
+            dst: msg.src.to_string(),
             body,
         }
     }
 }
 
-impl Server for EchoServer {
-    fn set_node_id(&mut self, node_id: &str) {
-        self.node_id = node_id.to_string();
-    }
-
+impl Serve for EchoServer {
     fn reply(&mut self, msg: &Message) -> Message {
-        match &msg.body.kind {
-            BodyKind::Init => self.init(&msg.src, msg.body.payload.get_str("node_id")),
-            BodyKind::Echo => {
-                self.echo(&msg.src, msg.body.msg_id, msg.body.payload.get_str("echo"))
-            }
-            _ => panic!("receive ${:?}", msg),
+        match msg.body.kind {
+            BodyKind::Init => self.inner.init(msg),
+            BodyKind::Echo => self.echo(msg),
+            _ => panic!("{}", format!("cannot handle msg: {:?}", msg)),
         }
     }
+}
 
-    fn node_id(&self) -> &str {
-        &self.node_id
+impl HasInner for EchoServer {
+    fn into_inner(&mut self) -> &mut ServerInner {
+        &mut self.inner
     }
 }
 
 fn main() -> Result<()> {
     let mut server = EchoServer::default();
-    server.eventloop()
+    server.serve()
 }
