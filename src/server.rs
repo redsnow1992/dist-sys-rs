@@ -23,7 +23,7 @@ impl ServerInner {
         self.next_msg_id
     }
 
-    pub fn init(&mut self, msg: &Message) -> Message {
+    pub fn init(&mut self, msg: &Message) -> Option<Message> {
         self.node_id = msg.body.payload.get_str("node_id").to_string();
         self.next_msg_id = 0;
 
@@ -34,11 +34,11 @@ impl ServerInner {
             payload: Payload::new(),
         };
 
-        Message {
+        Some(Message {
             src: self.node_id.clone(),
             dst: msg.src.to_string(),
             body,
-        }
+        })
     }
 }
 
@@ -47,9 +47,13 @@ pub trait HasInner {
 }
 
 pub trait Serve: HasInner {
-    fn reply(&mut self, msg: &Message) -> Message;
+    fn send(&mut self) -> Option<Vec<Message>> {
+        None
+    }
 
-    fn reply_inner(&mut self, msg: &Message) -> Message {
+    fn reply(&mut self, msg: &Message) -> Option<Message>;
+
+    fn reply_inner(&mut self, msg: &Message) -> Option<Message> {
         self.into_inner().advance();
         self.reply(msg)
     }
@@ -61,8 +65,16 @@ pub trait Serve: HasInner {
         let input = serde_json::Deserializer::from_reader(stdin).into_iter::<Message>();
         for msg in input {
             let msg = msg.context("cannot deserialize from stdin")?;
-            let reply_msg = self.reply(&msg);
-            Self::write_to_stdout(&mut stdout, &reply_msg);
+            if let Some(reply_msg) = self.reply(&msg) {
+                Self::write_to_stdout(&mut stdout, &reply_msg);
+            }
+
+            if let Some(to_send) = self.send() {
+                for to_send_msg in to_send.iter() {
+                    self.into_inner().advance();
+                    Self::write_to_stdout(&mut stdout, &to_send_msg);
+                }
+            }
         }
 
         Ok(())

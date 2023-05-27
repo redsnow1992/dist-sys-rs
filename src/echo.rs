@@ -1,3 +1,6 @@
+#![feature(register_tool)]
+#![register_tool(tarpaulin)]
+
 use anyhow::Result;
 use core::panic;
 use dist_sys_rs::{
@@ -29,10 +32,10 @@ impl EchoServer {
 }
 
 impl Serve for EchoServer {
-    fn reply(&mut self, msg: &Message) -> Message {
+    fn reply(&mut self, msg: &Message) -> Option<Message> {
         match msg.body.kind {
             BodyKind::Init => self.inner.init(msg),
-            BodyKind::Echo => self.echo(msg),
+            BodyKind::Echo => Some(self.echo(msg)),
             _ => panic!("{}", format!("cannot handle msg: {:?}", msg)),
         }
     }
@@ -44,6 +47,7 @@ impl HasInner for EchoServer {
     }
 }
 
+#[tarpaulin::skip]
 fn main() -> Result<()> {
     let mut server = EchoServer::default();
     server.serve()
