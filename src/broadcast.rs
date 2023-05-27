@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use dist_sys_rs::{server::Server, message::{Message, BodyKind, Body, Payload}};
+use dist_sys_rs::{
+    message::{Body, BodyKind, Message, Payload},
+    server::Server,
+};
 use serde_json::{json, Value};
 
 #[derive(Debug, Default)]
@@ -53,12 +56,14 @@ impl BroadcastServer {
         self.next_msg_id += 1;
         self.topology = HashMap::new();
         for (k, v) in topology.as_object().unwrap().iter() {
-            let dsts: Vec<String> = v.as_array().unwrap()
+            let dsts: Vec<String> = v
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|item| item.as_str().unwrap().to_string())
                 .collect();
             self.topology.insert(k.to_string(), dsts);
-        };
+        }
 
         let body = Body {
             kind: BodyKind::TopologyOk,
@@ -87,15 +92,21 @@ impl Server for BroadcastServer {
     fn reply(&mut self, msg: &Message) -> Message {
         match &msg.body.kind {
             BodyKind::Init => self.init(&msg.src, msg.body.payload.get_str("node_id")),
-            BodyKind::Broadcast => self.broadcast(&msg.src, msg.body.msg_id, msg.body.payload.get_usize("message")),
+            BodyKind::Broadcast => self.broadcast(
+                &msg.src,
+                msg.body.msg_id,
+                msg.body.payload.get_usize("message"),
+            ),
             BodyKind::Read => self.read(&msg.src, msg.body.msg_id),
-            BodyKind::Topology => self.topology(&msg.src, msg.body.msg_id, msg.body.payload.get("topology")),
+            BodyKind::Topology => {
+                self.topology(&msg.src, msg.body.msg_id, msg.body.payload.get("topology"))
+            }
             _ => panic!("receive ${:?}", msg),
         }
     }
 }
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     let mut server = BroadcastServer::default();
     server.eventloop()
 }
