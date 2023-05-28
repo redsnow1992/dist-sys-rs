@@ -1,4 +1,5 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use core::panic;
 use dist_sys_rs::{
     message::{Body, BodyKind, Message, Payload},
@@ -28,8 +29,9 @@ impl EchoServer {
     }
 }
 
+#[async_trait]
 impl Serve for EchoServer {
-    fn reply(&mut self, msg: &Message) -> Option<Message> {
+    async fn reply(&mut self, msg: &Message) -> Option<Message> {
         match msg.body.kind {
             BodyKind::Init => self.inner.init(msg),
             BodyKind::Echo => Some(self.echo(msg)),
@@ -44,7 +46,35 @@ impl HasInner for EchoServer {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut server = EchoServer::default();
-    server.serve()
+    server.serve().await
+}
+
+#[cfg(test)]
+mod tests {
+    use dist_sys_rs::message::{Body, BodyKind, Message, Payload};
+    use serde_json::json;
+
+    use crate::EchoServer;
+
+    #[test]
+    fn test_echo() {
+        let mut server = EchoServer::default();
+        let msg = Message {
+            src: "n1".to_string(),
+            dst: "n2".to_string(),
+            body: Body {
+                kind: BodyKind::Echo,
+                reply_to: None,
+                payload: Payload::init("echo", json!("hhh")),
+                msg_id: 100,
+            },
+        };
+        let reply_msg = server.echo(&msg);
+        assert_eq!(BodyKind::EchoOk, reply_msg.body.kind);
+        assert_eq!(100, reply_msg.body.reply_to.unwrap());
+        assert_eq!("hhh", reply_msg.body.payload.get_str("echo"));
+    }
 }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use core::panic;
 use dist_sys_rs::{
     message::{Body, BodyKind, Message, Payload},
@@ -54,8 +55,9 @@ impl UniqueIdServer {
     }
 }
 
+#[async_trait]
 impl Serve for UniqueIdServer {
-    fn reply(&mut self, msg: &Message) -> Option<Message> {
+    async fn reply(&mut self, msg: &Message) -> Option<Message> {
         match &msg.body.kind {
             BodyKind::Init => self.inner.init(msg),
             BodyKind::Generate => Some(self.generate(msg)),
@@ -70,7 +72,8 @@ impl HasInner for UniqueIdServer {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut server = UniqueIdServer::default();
-    server.serve()
+    server.serve().await
 }

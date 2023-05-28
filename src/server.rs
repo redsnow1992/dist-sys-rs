@@ -1,6 +1,7 @@
-use std::io::{StdoutLock, Write};
-
-use anyhow::{Context, Result};
+use anyhow::Result;
+use async_trait::async_trait;
+use tokio::io::BufReader;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, Stdout};
 
 use crate::message::{Body, BodyKind, Message, Payload};
 
@@ -46,33 +47,36 @@ pub trait HasInner {
     fn as_inner(&mut self) -> &mut ServerInner;
 }
 
+#[async_trait]
 pub trait Serve: HasInner {
-    fn send(&mut self) -> Option<Vec<Message>> {
+    async fn send(&mut self) -> Option<Vec<Message>> {
         None
     }
 
-    fn reply(&mut self, msg: &Message) -> Option<Message>;
+    async fn reply(&mut self, msg: &Message) -> Option<Message>;
 
-    fn reply_inner(&mut self, msg: &Message) -> Option<Message> {
+    async fn reply_inner(&mut self, msg: &Message) -> Option<Message> {
         self.as_inner().advance();
-        self.reply(msg)
+        self.reply(msg).await
     }
 
     /// eventloop to process msg
-    fn serve(&mut self) -> Result<()> {
-        let stdin = std::io::stdin().lock();
-        let mut stdout = std::io::stdout().lock();
-        let input = serde_json::Deserializer::from_reader(stdin).into_iter::<Message>();
-        for msg in input {
-            let msg = msg.context("cannot deserialize from stdin")?;
-            if let Some(reply_msg) = self.reply(&msg) {
-                Self::write_to_stdout(&mut stdout, &reply_msg);
+    async fn serve(&mut self) -> Result<()> {
+        let stdin = tokio::io::stdin();
+        let mut stdout = tokio::io::stdout();
+        let reader = BufReader::new(stdin);
+        let mut lines = reader.lines();
+
+        while let Some(line) = lines.next_line().await? {
+            let msg: Message = serde_json::from_str(&line).unwrap();
+            if let Some(reply_msg) = self.reply(&msg).await {
+                Self::write_to_stdout(&mut stdout, &reply_msg).await;
             }
 
-            if let Some(to_send) = self.send() {
+            if let Some(to_send) = self.send().await {
                 for to_send_msg in to_send.iter() {
                     self.as_inner().advance();
-                    Self::write_to_stdout(&mut stdout, to_send_msg);
+                    Self::write_to_stdout(&mut stdout, to_send_msg).await;
                 }
             }
         }
@@ -80,8 +84,12 @@ pub trait Serve: HasInner {
         Ok(())
     }
 
-    fn write_to_stdout(output: &mut StdoutLock, msg: &Message) {
-        serde_json::to_writer(&mut *output, msg).unwrap();
-        output.write_all(b"\n").unwrap();
+    async fn write_to_stdout(output: &mut Stdout, msg: &Message) {
+        let serialized = serde_json::to_string(&msg).unwrap();
+        output.write_all(serialized.as_bytes()).await.unwrap();
+        output.write_all(b"\n").await.unwrap();
+
+        // serde_json::to_writer(&mut *output, msg).unwrap();
+        // output.write_all(b"\n").unwrap();
     }
 }

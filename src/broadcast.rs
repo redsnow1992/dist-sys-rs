@@ -1,4 +1,5 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 use dist_sys_rs::{
@@ -130,8 +131,9 @@ impl BroadcastServer {
     }
 }
 
+#[async_trait]
 impl Serve for BroadcastServer {
-    fn reply(&mut self, msg: &Message) -> Option<Message> {
+    async fn reply(&mut self, msg: &Message) -> Option<Message> {
         match &msg.body.kind {
             BodyKind::Init => self.inner.init(msg),
             BodyKind::Broadcast => Some(self.broadcast(msg)),
@@ -143,7 +145,7 @@ impl Serve for BroadcastServer {
         }
     }
 
-    fn send(&mut self) -> Option<Vec<Message>> {
+    async fn send(&mut self) -> Option<Vec<Message>> {
         self.broadcast_back()
     }
 }
@@ -154,9 +156,10 @@ impl HasInner for BroadcastServer {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut server = BroadcastServer::default();
-    server.serve()
+    server.serve().await
 }
 
 #[cfg(test)]
