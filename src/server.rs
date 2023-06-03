@@ -20,6 +20,12 @@ impl ServerInner {
         &self.node_id
     }
 
+    // #[cfg(test)]
+    // TODO mark only for test
+    pub fn set_node_id(&mut self, node_id: &str) {
+        self.node_id = node_id.to_string();
+    }
+
     pub fn next_msg_id(&self) -> usize {
         self.next_msg_id
     }
