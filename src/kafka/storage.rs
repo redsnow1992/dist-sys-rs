@@ -44,12 +44,15 @@ impl Storage {
     pub async fn new() -> Self {
         let open_options = utils::rw_open_options();
         let filename = "kafka_log"; // TODO
-        fs::create_dir_all("log").await
-            .expect("failed to create log dir");  // TODO
+        fs::create_dir_all("log")
+            .await
+            .expect("failed to create log dir"); // TODO
         let path = format!("log/{}", filename);
 
-        let log = open_options.open(&path).await
-            .expect(&format!("can't open log file {}", &path));
+        let log = open_options
+            .open(&path)
+            .await
+            .unwrap_or_else(|_| panic!("can't open log file {}", &path));
 
         Self {
             offsets: Self::load_meta().await,
@@ -64,7 +67,7 @@ impl Storage {
      * with format: offset:key:msg
      */
     pub async fn append(&mut self, key: &str, msg: usize) -> usize {
-        let offset = match self.offsets.get_mut(key) { 
+        let offset = match self.offsets.get_mut(key) {
             Some(offset) => {
                 *offset += 1;
                 *offset
@@ -100,7 +103,6 @@ impl Storage {
             .open(format!("log/{}", self.log_name))
             .await
             .expect("cannot read log file");
-
 
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
@@ -173,7 +175,7 @@ impl Storage {
 pub mod tests {
     use std::collections::HashMap;
 
-    use crate::utils::{self, tests::generate_random_node_id};
+    use crate::utils;
 
     use super::Storage;
 
@@ -184,8 +186,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_append_and_read() {
-        let node_id = generate_random_node_id();
-        let mut storage = Storage::new(&node_id).await;
+        let mut storage = Storage::new().await;
         storage.append("k1", 100).await;
         storage.append("k1", 101).await;
         storage.append("k2", 100).await;

@@ -97,7 +97,7 @@ impl KafkaServer {
         Message {
             src: self.inner.node_id().to_string(),
             dst: msg.src.to_string(),
-            body: Body { 
+            body: Body {
                 kind: BodyKind::CommitOffsetsOk,
                 msg_id: self.inner.next_msg_id(),
                 reply_to: Some(msg.body.msg_id),
@@ -121,15 +121,16 @@ impl KafkaServer {
         let keys: Vec<String> = serde_json::from_value(keys).unwrap();
         let keys: HashSet<String> = HashSet::from_iter(keys);
 
-        let filtered: HashMap<&String, &usize> = self.commit_offsets
+        let filtered: HashMap<&String, &usize> = self
+            .commit_offsets
             .iter()
-            .filter(|&(k,_)| keys.contains(k))
+            .filter(|&(k, _)| keys.contains(k))
             .collect();
 
         Message {
             src: self.inner.node_id().to_string(),
             dst: msg.src.to_string(),
-            body: Body { 
+            body: Body {
                 kind: BodyKind::ListCommittedOffsetsOk,
                 msg_id: self.inner.next_msg_id(),
                 reply_to: Some(msg.body.msg_id),
@@ -268,7 +269,10 @@ mod tests {
 
         let msg = builder
             .clone()
-            .insert("offsets", json!(HashMap::from([("k1", 1000), ("k2", 2000)])))
+            .insert(
+                "offsets",
+                json!(HashMap::from([("k1", 1000), ("k2", 2000)])),
+            )
             .build();
         let reply_msg = server.reply(&msg).await.unwrap();
         assert_eq!(BodyKind::CommitOffsetsOk, reply_msg.body.kind);
@@ -289,13 +293,19 @@ mod tests {
         let builder = MessageBuilder::new().bodykind(BodyKind::CommitOffsets);
         let msg = builder
             .clone()
-            .insert("offsets", json!(HashMap::from([("k1", 1000), ("k2", 2000)])))
+            .insert(
+                "offsets",
+                json!(HashMap::from([("k1", 1000), ("k2", 2000)])),
+            )
             .build();
         server.reply(&msg).await;
 
         let msg = builder
             .clone()
-            .insert("offsets", json!(HashMap::from([("k3", 2000), ("k2", 2500)])))
+            .insert(
+                "offsets",
+                json!(HashMap::from([("k3", 2000), ("k2", 2500)])),
+            )
             .build();
         server.reply(&msg).await;
 
@@ -307,7 +317,8 @@ mod tests {
         assert_eq!(BodyKind::ListCommittedOffsetsOk, reply_msg.body.kind);
 
         let ret_offsets = reply_msg.body.payload.get_raw("offsets");
-        let ret_offsets: HashMap<String, usize> = serde_json::from_value(ret_offsets.clone()).unwrap();
+        let ret_offsets: HashMap<String, usize> =
+            serde_json::from_value(ret_offsets.clone()).unwrap();
         assert_eq!(1000, ret_offsets["k1"]);
         assert_eq!(2500, ret_offsets["k2"]);
 
